@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { assets } from '../../assets/assets'
 import toast from 'react-hot-toast'
 import Footer from '../pages/Footer'
 import Loader from '../Loader'
 import Moment from 'moment'
-import { useAppContext } from '../../../context/AppContext'
+import { useAppContext } from '../../../context/AppContext.jsx'
 
 const Blog = () => {
   const { id } = useParams()
-  const { axios } = useAppContext()
+  const { publicAxios } = useAppContext()
 
   const [data, setData] = useState(null)
   const [comments, setComments] = useState([])
@@ -17,48 +17,63 @@ const Blog = () => {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const fetchBlogData = async () => {
+  const fetchBlogData = useCallback(async () => {
     try {
-      const { data } = await axios.get(`/api/blog/${id}`)
-      data.success ? setData(data.blog) : toast.error(data.message)
+      const { data } = await publicAxios.get(`/api/blog/${id}`)
+      if (data.success) {
+        setData(data.blog)
+      } else if (data.message && typeof data.message === 'string') {
+        toast.error(data.message)
+      }
     } catch (error) {
-      toast.error(error.message)
+      const errorMessage = error.response?.data?.message || error.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      }
     }
-  }
+  }, [id, publicAxios])
 
-  const fetchCommentsData = async () => {
+  const fetchCommentsData = useCallback(async () => {
     try {
-      const { data } = await axios.post('/api/blog/comments', {
+      const { data } = await publicAxios.post('/api/blog/comments', {
         blogId: id
       })
       if (data.success) {
         setComments(data.comments)
-      } else {
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(error.message)
+      const errorMessage = error.response?.data?.message || error.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      }
     }
-  }
+  }, [id, publicAxios])
 
   const addComment = async e => {
     e.preventDefault()
     try {
-      const { data } = await axios.post('/api/blog/add-comment', {
+      const { data } = await publicAxios.post('/api/blog/add-comment', {
         blog: id,
         name,
         content
       })
       if (data.success) {
-        toast.success(data.message)
+        if (data.message && typeof data.message === 'string') {
+          toast.success(data.message)
+        }
         setName('')
         setContent('')
         fetchCommentsData() // Refresh comments after posting
-      } else {
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(error.message)
+      const errorMessage = error.response?.data?.message || error.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      }
     }
   }
 
@@ -70,7 +85,7 @@ const Blog = () => {
       setLoading(false)
     }
     load()
-  }, [id])
+  }, [id, fetchBlogData, fetchCommentsData])
 
   if (loading || !data) return <Loader />
 
@@ -90,8 +105,8 @@ const Blog = () => {
           {data.title}
         </h1>
         <h2 className='my-5 max-w-lg truncate mx-auto'>{data.subTitle}</h2>
-        <p className='inline-block py-1 px-4 rounded-full mb-6 border-blue-400 bg-blue-500/20 font-medium text-blue-400'>
-          Micheal Brown
+        <p className='inline-block py-1 px-4 rounded-full mb-6 border-red-400 bg-red-500 font-medium text-white'>
+          With Love
         </p>
       </div>
 

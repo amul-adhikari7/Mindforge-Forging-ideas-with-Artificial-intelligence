@@ -4,20 +4,25 @@ import toast from 'react-hot-toast'
 const CommentTableItem = ({ comment }) => {
   const { blog, createdAt, _id } = comment
   const BlogDate = new Date(createdAt)
-  const { axios } = useAppContext()
+  const { authAxios } = useAppContext()
   const approveComment = async () => {
     try {
-      const { data } = await axios.post('/api/admin/approve-comment', {
+      const { data } = await authAxios.post('/api/admin/approve-comment', {
         id: _id
       })
       if (data.success) {
         toast.success('Comment approved successfully')
-      } else {
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
       }
     } catch (error) {
       console.error('Error approving comment:', error)
-      toast.error('Failed to approve comment')
+      const errorMessage = error.response?.data?.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      } else {
+        toast.error('Failed to approve comment')
+      }
     }
   }
   const deleteComment = async () => {
@@ -27,17 +32,22 @@ const CommentTableItem = ({ comment }) => {
     if (!confirm) return
 
     try {
-      const { data } = await axios.post('/api/admin/delete-comment', {
+      const { data } = await authAxios.post('/api/admin/delete-comment', {
         id: _id
       })
       if (data.success) {
         toast.success('Comment deleted successfully')
-      } else {
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
       }
     } catch (error) {
       console.error('Error deleting comment:', error)
-      toast.error('Failed to delete comment')
+      const errorMessage = error.response?.data?.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      } else {
+        toast.error('Failed to delete comment')
+      }
     }
   }
 

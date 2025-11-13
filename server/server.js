@@ -1,9 +1,14 @@
 import express from "express";
 import "dotenv/config";
 import cors from "cors";
+import { EventEmitter } from "events";
 import connectDb from "./configs/db.js";
 import adminRouter from "./routes/adminRoutes.js";
 import blogRouter from "./routes/blogRoutes.js";
+import momentRouter from "./routes/momentRoutes.js";
+
+// Increase EventEmitter limit
+EventEmitter.defaultMaxListeners = 15;
 
 const app = express();
 connectDb();
@@ -16,6 +21,7 @@ app.get("/", (req, res) => {
 });
 app.use("/api/admin", adminRouter);
 app.use("/api/blog", blogRouter);
+app.use("/api/moments", momentRouter);
 
 const PORT = process.env.PORT || 3000;
 

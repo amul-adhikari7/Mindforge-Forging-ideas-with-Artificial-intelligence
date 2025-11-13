@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import CommentTableItem from '../../Admin/CommentTableItem'
 import { useAppContext } from '../../../../context/AppContext'
 import toast from 'react-hot-toast'
 const Comments = () => {
   const [comments, setComments] = useState([])
   const [filter, setFilter] = useState('Not Approved')
-  const { axios } = useAppContext()
-  const fetchComments = async () => {
+  const { authAxios } = useAppContext()
+  const fetchComments = useCallback(async () => {
     try {
-      const { data } = await axios.get('/api/admin/comments')
+      const { data } = await authAxios.get('/api/admin/comments')
       if (data.success) {
         console.log('Comments received:', data.comments)
         setComments(data.comments)
@@ -19,10 +19,11 @@ const Comments = () => {
       console.error('Error fetching comments:', error)
       toast.error(error.message)
     }
-  }
+  }, [authAxios])
+
   useEffect(() => {
     fetchComments()
-  }, [])
+  }, [fetchComments])
   return (
     <div className='flex-1 pt-5 px-5 sm:pt-12 sm:pl-16  bg-blue-50/50'>
       <div className='flex items-center justify-between max-w-3xl'>

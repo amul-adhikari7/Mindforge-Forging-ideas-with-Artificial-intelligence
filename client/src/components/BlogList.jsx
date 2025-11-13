@@ -1,55 +1,88 @@
-import { useState } from 'react'
-import { blogCategories } from '../assets/assets'
+import { useState, useEffect } from 'react'
 import BlogCard from './BlogCard'
 import { useAppContext } from '../../context/AppContext'
+import MomentCard from './Moments/MomentCard'
 
 const BlogList = () => {
-  const [menu, setMenu] = useState('All')
-  const { blogs, input } = useAppContext()
+  const { blogs, input, publicAxios } = useAppContext()
+  const [moments, setMoments] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredBlogs = () => {
-    if (input === '') {
-      return blogs
+  // Fetch moments when component mounts
+  useEffect(() => {
+    const fetchMoments = async () => {
+      try {
+        const { data } = await publicAxios.get('/api/moments')
+        if (data.success) {
+          setMoments(data.moments)
+        }
+      } catch (error) {
+        console.error('Error fetching moments:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-    return blogs.filter(
+    fetchMoments()
+  }, [publicAxios])
+
+  const getFilteredContent = () => {
+    const filteredBlogs = blogs.filter(
       blog =>
+        !input ||
         blog.title.toLowerCase().includes(input.toLowerCase()) ||
         blog.category.toLowerCase().includes(input.toLowerCase())
     )
+
+    // Interleave blogs and moments
+    const content = []
+    const maxLength = Math.max(filteredBlogs.length, moments.length)
+
+    for (let i = 0; i < maxLength; i++) {
+      if (filteredBlogs[i]) {
+        content.push({
+          type: 'blog',
+          data: filteredBlogs[i],
+          key: `blog-${filteredBlogs[i]._id}`
+        })
+      }
+      if (moments[i]) {
+        content.push({
+          type: 'moment',
+          data: moments[i],
+          key: `moment-${moments[i]._id}`
+        })
+      }
+    }
+
+    return content
   }
 
   return (
-    <div>
-      {/* Category buttons */}
-      <div className='flex justify-center gap-4 sm:gap-8 my-10 relative'>
-        {blogCategories.map(item => (
-          <div key={item} className='relative'>
-            <button
-              onClick={() => setMenu(item)}
-              className={`relative px-5 py-2 rounded-full font-medium transition-all duration-300 overflow-hidden
-                ${
-                  menu === item
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-            >
-              {/* Blue background only when active */}
-              {menu === item && (
-                <span className='absolute inset-0 bg-blue-500 rounded-full z-[-1] animate-fadeIn'></span>
-              )}
-              {item}
-            </button>
+    <div className='min-h-screen'>
+      <div className='max-w-7xl mx-auto px-4 py-8'>
+        {/* Horizontal scroll container */}
+        {loading ? (
+          <div className='text-center py-8'>
+            <div className='animate-pulse text-gray-500'>
+              Loading content...
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Blog cards grid */}
-      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-24 sm:mx-16 xl:mx-40'>
-        {filteredBlogs()
-          .filter(blog => (menu === 'All' ? true : blog.category === menu))
-          .map(blog => (
-            <BlogCard key={blog._id} blog={blog} />
-          ))}
+        ) : (
+          <div className='flex gap-6 overflow-x-auto py-4 snap-x snap-mandatory'>
+            {getFilteredContent().map(item => (
+              <div
+                key={item.key}
+                className='snap-start flex-shrink-0 w-[300px] sm:w-[340px] md:w-[380px]'
+              >
+                {item.type === 'blog' ? (
+                  <BlogCard blog={item.data} />
+                ) : (
+                  <MomentCard moment={item.data} showActions={false} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

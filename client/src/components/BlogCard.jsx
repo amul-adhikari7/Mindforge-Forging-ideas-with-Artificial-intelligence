@@ -8,35 +8,29 @@ const BlogCard = ({ blog }) => {
   return (
     <div
       onClick={() => navigate(`/blog/${_id}`)}
-      className='relative z-10 w-full rounded-lg overflow-hidden shadow-md hover:scale-105 hover:shadow-blue-400 transition-transform duration-300 cursor-pointer bg-white'
-      style={{ position: 'relative' }}
+      className='card cursor-pointer'
     >
-      <div className='absolute inset-0 z-0'></div>
-
-      <div className='relative z-10'>
-        <img
-          src={image}
-          alt={title}
-          className='aspect-video object-cover w-full select-none'
-        />
-
-        <span className='ml-5 mt-4 px-3 py-1 inline-block bg-blue-500 rounded-full text-white text-xs'>
-          {category}
-        </span>
-
-        <div className='p-5'>
-          <h1 className='mb-2 font-semibold text-gray-900 text-lg'>{title}</h1>
-
-          <p
-            className='mb-3 text-sm text-gray-600'
-            dangerouslySetInnerHTML={{
-              __html:
-                description.length > 80
-                  ? description.slice(0, 80) + '...'
-                  : description
-            }}
-          ></p>
+      <div className='relative'>
+        <img src={image} alt={title} className='w-full h-48 object-cover' />
+        <div className='absolute top-3 left-3'>
+          <span className='inline-block bg-blue-50 text-blue-600 text-xs px-3 py-1 rounded-full'>
+            {category}
+          </span>
         </div>
+      </div>
+
+      <div className='card-inner'>
+        <h1 className='mb-2 font-semibold text-gray-900 text-lg'>{title}</h1>
+
+        <p
+          className='mb-1 text-sm text-gray-600'
+          dangerouslySetInnerHTML={{
+            __html:
+              description.length > 100
+                ? description.slice(0, 100) + '...'
+                : description
+          }}
+        ></p>
       </div>
     </div>
   )

@@ -1,7 +1,8 @@
 import express from "express";
-import auth from "../middlewares/auth.js";
-import upload from "../middlewares/multer.js";
-import addBlog, {
+import { verifyToken as auth } from "../middlewares/auth.js";
+import { upload } from "../middlewares/multer.js";
+import {
+  addBlog,
   addComments,
   deleteBlogsById,
   getAllBlogs,

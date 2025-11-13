@@ -4,7 +4,7 @@ import { useAppContext } from '../../../context/AppContext'
 
 const BlogTableItem = ({ blog, fetchBlogs, index }) => {
   const { title, createdAt } = blog
-  const { axios } = useAppContext()
+  const { authAxios } = useAppContext()
   const BlogDate = new Date(createdAt)
 
   const deleteBlog = async () => {
@@ -12,7 +12,9 @@ const BlogTableItem = ({ blog, fetchBlogs, index }) => {
     if (!confirm) return
 
     try {
-      const { data } = await axios.post('/api/blog/delete', { id: blog._id })
+      const { data } = await authAxios.post('/api/blog/delete', {
+        id: blog._id
+      })
       if (data.success) {
         toast.success('blog deleted sucessfully')
         await fetchBlogs()
@@ -25,7 +27,7 @@ const BlogTableItem = ({ blog, fetchBlogs, index }) => {
   }
   const togglePublish = async () => {
     try {
-      const { data } = await axios.post('/api/blog/toggle-publish', {
+      const { data } = await authAxios.post('/api/blog/toggle-publish', {
         id: blog._id
       })
       if (!data.sucess) {

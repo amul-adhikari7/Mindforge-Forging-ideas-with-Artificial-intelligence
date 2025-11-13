@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { assets, blogCategories } from '../../../assets/assets'
 import Quill from 'quill'
 import { useAppContext } from '../../../../context/AppContext'
 import toast from 'react-hot-toast'
 import { parse } from 'marked'
 const AddBlog = () => {
-  const { axios } = useAppContext()
+  const navigate = useNavigate()
+  const { authAxios } = useAppContext()
   const [isAdding, setIsAdding] = useState(false)
   const editorRef = useRef(null)
   const quillRef = useRef(null)
@@ -18,19 +20,24 @@ const AddBlog = () => {
   const [isPublished, setIsPublished] = useState(false)
 
   const generateContent = async () => {
-    if (!title) {
+    if (!title.trim()) {
       return toast.error('Please enter title to generate content')
     }
     try {
       setLoading(true)
-      const { data } = await axios.post('/api/blog/generate', { prompt: title })
+      const { data } = await authAxios.post('/api/blog/generate', {
+        prompt: title
+      })
       if (data.success) {
         quillRef.current.root.innerHTML = parse(data.content)
-      } else {
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(error.message)
+      const errorMessage = error.response?.data?.message || error.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
@@ -39,30 +46,70 @@ const AddBlog = () => {
   const onSubmitHandler = async e => {
     try {
       e.preventDefault()
+
+      // Validate required fields
+      if (!title.trim()) {
+        toast.error('Please enter a blog title')
+        return
+      }
+      if (!category) {
+        toast.error('Please select a category')
+        return
+      }
+      if (!image) {
+        toast.error('Please upload a thumbnail image')
+        return
+      }
+      if (!quillRef.current.root.innerHTML.trim()) {
+        toast.error('Please add some content to your blog')
+        return
+      }
+
       setIsAdding(true)
       const blog = {
-        title,
-        subTitle,
-        description: quillRef.current.root.innerHTML,
+        title: title.trim(),
+        subTitle: subTitle.trim(),
+        description: quillRef.current.root.innerHTML.trim(),
         category,
         isPublished
       }
+
       const formData = new FormData()
       formData.append('blog', JSON.stringify(blog))
-      formData.append('image', image)
-      const { data } = await axios.post('/api/blog/add', formData)
-      if (!data.sucess) {
-        toast.success(data.message)
+
+      // Preserve file extension by appending with original name
+      formData.append('image', image, image.name)
+
+      const { data } = await authAxios.post('/api/blog/add', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      if (data.success) {
+        toast.success('Blog added successfully!')
+        // Reset form
         setImage(false)
         setTitle('')
         setSubTitle('')
         quillRef.current.root.innerHTML = ''
         setCategory('Startup')
-      } else {
+        setIsPublished(false)
+        // Navigate to blog list using React Router
+        navigate('/admin/blogs', { replace: true })
+      } else if (data.message && typeof data.message === 'string') {
         toast.error(data.message)
+      } else {
+        toast.error('Failed to add blog')
       }
     } catch (error) {
-      toast.error(error.message)
+      console.error('Error adding blog:', error)
+      const errorMessage = error.response?.data?.message
+      if (errorMessage && typeof errorMessage === 'string') {
+        toast.error(errorMessage)
+      } else {
+        toast.error('Error adding blog. Please try again.')
+      }
     } finally {
       setIsAdding(false)
     }
@@ -89,8 +136,22 @@ const AddBlog = () => {
           />
           <input
             onChange={e => {
-              setImage(e.target.files[0])
+              const file = e.target.files[0]
+              if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                  toast.error('Please upload an image file')
+                  return
+                }
+                // Validate file size (5MB limit)
+                if (file.size > 5 * 1024 * 1024) {
+                  toast.error('Image size should be less than 5MB')
+                  return
+                }
+                setImage(file)
+              }
             }}
+            accept='image/*'
             type='file'
             id='image'
             hidden

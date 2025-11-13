@@ -1,31 +1,72 @@
 import fs from "fs";
-import imagekit from "../configs/imageKit.js";
+import { imagekit } from "../configs/imageKit.js";
 import Blog from "../models/blogModel.js";
 import Comment from "../models/commentModel.js";
 import main from "../configs/gemini.js";
-const addBlog = async (req, res) => {
+export const addBlog = async (req, res) => {
   try {
-    const { title, subTitle, description, category, isPublished } = JSON.parse(
-      req.body.blog
-    );
+    // Check if blog data exists
+    if (!req.body.blog) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing blog data",
+      });
+    }
+
+    // Parse blog data and handle JSON parsing errors
+    let blogData;
+    try {
+      blogData = JSON.parse(req.body.blog);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid blog data format",
+      });
+    }
+
+    const { title, subTitle, description, category, isPublished } = blogData;
     const imgFile = req.file;
 
     // Validate required fields
-    if (!title || !subTitle || !description || !category || !imgFile) {
-      return res.json({ success: false, message: "Missing required fields" });
+    const missingFields = [];
+    if (!title) missingFields.push("title");
+    if (!subTitle) missingFields.push("subtitle");
+    if (!description) missingFields.push("description");
+    if (!category) missingFields.push("category");
+    if (!imgFile) missingFields.push("image");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+      });
     }
 
-    // Read uploaded image buffer
-    const fileBuffer = fs.readFileSync(imgFile.path);
+    // Use the buffer directly since we're using memory storage
+    if (!imgFile.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid image file: no data received",
+      });
+    }
 
-    // Upload image to ImageKit
-    const uploaded = await imagekit.upload({
-      file: fileBuffer,
-      fileName: imgFile.originalname,
-      folder: "/blogs",
-    });
+    // Upload image to ImageKit with proper error handling
+    let uploaded;
+    try {
+      uploaded = await imagekit.upload({
+        file: imgFile.buffer,
+        fileName: imgFile.originalname || `blog-image-${Date.now()}`,
+        folder: "/blogs",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to upload image",
+        error: error.message,
+      });
+    }
 
-    // Optimize image URL
+    // Optimize image URL with fallback values
     const optimizedImageUrl = imagekit.url({
       path: uploaded.filePath,
       transformation: [
@@ -45,14 +86,12 @@ const addBlog = async (req, res) => {
       isPublished,
     });
 
-    // Delete local temp file
-    fs.unlinkSync(imgFile.path);
-
     res.json({ success: true, message: "Blog added successfully" });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
 };
+
 export const getAllBlogs = async (req, res) => {
   try {
     const blogs = await Blog.find({ isPublished: true });
@@ -133,5 +172,3 @@ export const generateContent = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
-
-export default addBlog;

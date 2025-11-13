@@ -6,12 +6,27 @@ import Comment from "../models/commentModel.js";
 export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Login attempt for:", email);
 
     // 1️⃣ Validate inputs
     if (!email || !password) {
+      console.log("Missing credentials");
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
+      });
+    }
+
+    // Check environment variables
+    if (
+      !process.env.ADMIN_EMAIL ||
+      !process.env.ADMIN_PASSWORD ||
+      !process.env.JWT_SECRET
+    ) {
+      console.error("Missing environment variables");
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error",
       });
     }
 
@@ -20,24 +35,35 @@ export const adminLogin = async (req, res) => {
     const isValidPassword = password === process.env.ADMIN_PASSWORD;
 
     if (!isValidEmail || !isValidPassword) {
+      console.log("Invalid credentials for:", email);
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
 
-    // 3️⃣ Generate JWT
+    // 3️⃣ Generate JWT with standard claims
     const token = jwt.sign(
-      { email, role: "admin" },
-      process.env.JWT_SECRET,
-      { expiresIn: "2h" } // optional but good practice
+      {
+        email,
+        role: "admin",
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 2 * 60 * 60, // 2 hours
+      },
+      process.env.JWT_SECRET
     );
+
+    console.log("Login successful for:", email);
 
     // 4️⃣ Send response
     return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
+      user: {
+        email,
+        role: "admin",
+      },
     });
   } catch (error) {
     // 5️⃣ Handle unexpected errors
@@ -50,26 +76,48 @@ export const adminLogin = async (req, res) => {
 };
 export const getAllBlogsAdmin = async (req, res) => {
   try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
     const blogs = await Blog.find({}).sort({ createdAt: -1 });
     res.json({ success: true, blogs });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    console.error("Get all blogs error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const getAllComments = async (req, res) => {
   try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
     const comments = await Comment.find({})
       .populate("blog")
       .sort({ createdAt: -1 });
     res.json({ success: true, comments });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    console.error("Get all comments error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const getDashboard = async (req, res) => {
   try {
+    // Verify admin access (belt and suspenders)
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
     const recentBlogs = await Blog.find({}).sort({ createdAt: -1 });
     const blogs = await Blog.countDocuments();
     const comments = await Comment.countDocuments();
@@ -80,10 +128,12 @@ export const getDashboard = async (req, res) => {
       recentBlogs,
       comments,
       drafts,
+      user: { email: req.user.email, role: req.user.role },
     };
     res.json({ success: true, dashboardData });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    console.error("Dashboard error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

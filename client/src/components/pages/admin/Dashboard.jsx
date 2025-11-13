@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
+import axios from 'axios'
 import { assets } from '../../../assets/assets'
 import BlogTableItem from '../../Admin/BlogTableItem'
 import { useAppContext } from '../../../../context/AppContext'
@@ -10,22 +11,75 @@ const Dashboard = () => {
     drafts: 0,
     recentBlogs: []
   })
-  const { axios } = useAppContext()
-  const fetchDashboard = async () => {
-    try {
-      const { data } = await axios.get('/api/admin/dashboard')
-      if (data.success) {
-        setDashboardData(data.dashboardData)
-      } else {
-        toast.error(data.message)
+  const [loading, setLoading] = useState(true)
+  const { authAxios, token, navigate } = useAppContext()
+
+  const fetchDashboard = useCallback(
+    async signal => {
+      if (!token) {
+        console.log('No token available, redirecting to login')
+        navigate('/admin/login')
+        return
       }
-    } catch (error) {
-      toast.error(error.message)
-    }
-  }
+
+      try {
+        setLoading(true)
+        const { data } = await authAxios.get('/api/admin/dashboard', {
+          signal
+        })
+
+        if (!data) {
+          throw new Error('No data received from server')
+        }
+
+        if (data.success) {
+          setDashboardData(data.dashboardData)
+        } else {
+          throw new Error(data.message || 'Failed to load dashboard data')
+        }
+      } catch (error) {
+        if (!signal.aborted) {
+          console.error('Dashboard error:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+          })
+
+          // Handle specific error cases
+          if (error.response?.status === 401) {
+            toast.error('Session expired. Please login again.')
+            navigate('/admin/login')
+          } else if (axios.isCancel(error)) {
+            console.log('Request cancelled')
+          } else {
+            toast.error('Failed to load dashboard. Please try again.')
+          }
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false)
+        }
+      }
+    },
+    [authAxios, token, navigate]
+  )
+
   useEffect(() => {
-    fetchDashboard()
-  }, [])
+    const controller = new AbortController()
+    fetchDashboard(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [fetchDashboard])
+
+  if (loading) {
+    return (
+      <div className='flex-1 p-4 md:p-10 bg-blue-50/50 flex items-center justify-center'>
+        <div className='text-lg text-gray-600'>Loading dashboard data...</div>
+      </div>
+    )
+  }
   return (
     <div className='flex-1 p-4 md:p-10 bg-blue-50/50 '>
       <div className='flex flex-wrap gap-4 '>

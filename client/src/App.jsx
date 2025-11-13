@@ -1,6 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Home from './components/pages/Home.jsx'
 import Blog from './components/pages/Blog.jsx'
+import Blogs from './pages/Blogs.jsx'
+import Moments from './pages/Moments.jsx'
 import Navbar from './components/Navbar.jsx'
 import Layout from './components/pages/admin/Layout.jsx'
 import Dashboard from './components/pages/admin/Dashboard.jsx'
@@ -18,11 +20,22 @@ const App = () => {
     <>
       <Navbar />
       <Routes>
+        {/* Public Routes */}
         <Route path='/' element={<Home />} />
+        <Route path='/blogs' element={<Blogs />} />
         <Route path='/blog/:id' element={<Blog />} />
+        <Route path='/moments' element={<Moments />} />
+        <Route path='/admin/login' element={<Login />} />
+        <Route path='/login' element={<Login />} />
 
-        <Route path='/admin' element={token ? <Layout /> : <Login />}>
-          <Route index element={<Dashboard />} />
+        {/* Admin Routes */}
+        <Route
+          path='/admin/*'
+          element={token ? <Layout /> : <Navigate to='/admin/login' />}
+        >
+          <Route path='' element={<Dashboard />} />
+          <Route path='blogs' element={<Blogs />} />
+          <Route path='moments' element={<Moments />} />
           <Route path='addBlog' element={<AddBlog />} />
           <Route path='listBlog' element={<ListBlog />} />
           <Route path='comments' element={<Comments />} />
