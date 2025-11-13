@@ -7,10 +7,25 @@ import toast from 'react-hot-toast'
 import { parse } from 'marked'
 const AddBlog = () => {
   const navigate = useNavigate()
-  const { authAxios } = useAppContext()
+  const { authAxios, token, user } = useAppContext()
   const [isAdding, setIsAdding] = useState(false)
   const editorRef = useRef(null)
   const quillRef = useRef(null)
+
+  // Check authorization
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/login')
+      return
+    }
+
+    const canCreateBlogs = user.role === 'admin' || user.role === 'author'
+    if (!canCreateBlogs) {
+      toast.error('Only admins and authors can create blogs')
+      navigate('/')
+      return
+    }
+  }, [token, user, navigate])
 
   const [image, setImage] = useState(false)
   const [loading, setLoading] = useState(false)

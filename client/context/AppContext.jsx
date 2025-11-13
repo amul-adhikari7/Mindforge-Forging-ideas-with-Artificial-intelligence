@@ -10,19 +10,24 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
+// Get base URL from environment, fallback to localhost
+const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:5000'
+
 // Create separate axios instances for public and authenticated requests
 const publicAxios = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL,
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true
 })
 
 const authAxios = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL,
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true
 })
 
 const AppContext = createContext()
@@ -38,15 +43,28 @@ export const AppProvider = ({ children }) => {
       const payload = JSON.parse(atob(storedToken.split('.')[1]))
       if (payload.exp * 1000 < Date.now()) {
         localStorage.removeItem('token')
+        localStorage.removeItem('user')
         return null
       }
       return storedToken
     } catch {
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
       return null
     }
   })
-  const [user, setUser] = useState(null)
+
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser)
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
   const [blogs, setBlogs] = useState([])
   const [moments, setMoments] = useState([])
   const [input, setInput] = useState('')
@@ -55,9 +73,10 @@ export const AppProvider = ({ children }) => {
   // Define core callback functions
   const logout = useCallback(() => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setToken(null)
     setUser(null)
-    navigate('/admin/login', { replace: true })
+    navigate('/', { replace: true })
   }, [navigate])
 
   const fetchUserData = useCallback(async () => {
@@ -66,16 +85,8 @@ export const AppProvider = ({ children }) => {
       return
     }
     try {
-      // Use a direct axios call with the current token
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/api/admin/dashboard`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      )
+      // Use authAxios with the current token
+      const response = await authAxios.get('/api/admin/dashboard')
       if (response.data.success) {
         setUser({ isAdmin: true, ...(response.data.dashboardData?.user || {}) })
       } else {
@@ -100,16 +111,17 @@ export const AppProvider = ({ children }) => {
         localStorage.setItem('token', authToken)
         setToken(authToken)
 
-        // Create a separate axios instance for this request to avoid interceptor issues
-        const response = await axios.get(
-          `${import.meta.env.VITE_BASE_URL}/api/admin/dashboard`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`
-            }
-          }
-        )
+        // Create a temporary axios instance for this request
+        const tempAxios = axios.create({
+          baseURL: BASE_URL,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`
+          },
+          withCredentials: true
+        })
+
+        const response = await tempAxios.get('/api/admin/dashboard')
 
         if (response.data.success) {
           setUser({
@@ -131,38 +143,76 @@ export const AppProvider = ({ children }) => {
 
   // Define regular functions
   const fetchBlogs = useCallback(async () => {
+    // Exit early if no token - blogs require authentication
+    if (!token) {
+      return
+    }
     try {
-      const { data } = await publicAxios.get('api/blog/all')
+      const { data } = await publicAxios.get('/api/blog/all')
       if (data.success) {
         setBlogs(data.blogs)
       } else if (data.message) {
         toast.error(data.message)
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message
+      console.error('Error fetching blogs:', error)
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to fetch blogs'
       if (errorMessage && typeof errorMessage === 'string') {
         toast.error(errorMessage)
       }
     }
-  }, [])
+  }, [token])
 
   const fetchMoments = useCallback(async () => {
+    // Exit early if no token - moments require authentication
+    if (!token) {
+      return
+    }
     try {
-      const { data } = await publicAxios.get('api/moments')
+      const { data } = await publicAxios.get('/api/moments')
       if (data.success) {
         setMoments(data.moments)
       } else if (data.message) {
         toast.error(data.message)
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message
+      console.error('Error fetching moments:', error)
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to fetch moments'
       if (errorMessage && typeof errorMessage === 'string') {
         toast.error(errorMessage)
       }
     }
-  }, [])
+  }, [token])
 
   // Set up axios interceptors
+
+  const fetchDashboard = useCallback(async () => {
+    // Exit early if no token - dashboard requires authentication
+    if (!token || !user) {
+      return
+    }
+    try {
+      const { data } = await authAxios.get('/api/admin/dashboard')
+      if (data.success && data.dashboardData?.user) {
+        setUser({
+          isAdmin: true,
+          ...data.dashboardData.user
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard:', error)
+      if (error.response?.status === 401) {
+        logout()
+      }
+    }
+  }, [token, user, logout])
+
   useEffect(() => {
     // Configure auth axios instance with token
     if (token) {
@@ -189,21 +239,37 @@ export const AppProvider = ({ children }) => {
 
   // Initial data fetch
   useEffect(() => {
-    // Fetch blogs and moments unless we're on actual admin pages (not /admin/blogs or /admin/moments)
+    // Only fetch data if user is authenticated (has both token and user)
+    if (!token || !user) {
+      return
+    }
+
+    // Check current location to determine what to fetch
     const isAdminPage =
       window.location.pathname.startsWith('/admin') &&
       !window.location.pathname.match(/\/(blogs|moments)$/)
-    if (!isAdminPage) {
-      fetchBlogs()
-      fetchMoments()
+
+    // Always fetch blogs and moments for authenticated users
+    // Fetch blogs and moments when authenticated
+    fetchBlogs()
+    fetchMoments()
+
+    // Fetch dashboard data if on admin page
+    if (isAdminPage) {
+      fetchDashboard()
     }
-    // Only fetch user data if token exists and we're in admin section
-    if (token && window.location.pathname.startsWith('/admin')) {
-      fetchUserData()
-    }
-  }, [token, fetchUserData, fetchBlogs, fetchMoments])
+  }, [token, user, fetchBlogs, fetchMoments, fetchDashboard])
 
   // Create context value with all needed functions and state
+  const persistedSetUser = useCallback(userData => {
+    setUser(userData)
+    if (userData) {
+      localStorage.setItem('user', JSON.stringify(userData))
+    } else {
+      localStorage.removeItem('user')
+    }
+  }, [])
+
   const value = {
     publicAxios,
     authAxios,
@@ -211,7 +277,7 @@ export const AppProvider = ({ children }) => {
     token,
     setToken,
     user,
-    setUser,
+    setUser: persistedSetUser,
     blogs,
     setBlogs,
     moments,
@@ -224,7 +290,8 @@ export const AppProvider = ({ children }) => {
     logout,
     fetchUserData,
     fetchBlogs,
-    fetchMoments
+    fetchMoments,
+    fetchDashboard
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

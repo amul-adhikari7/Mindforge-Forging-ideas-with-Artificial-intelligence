@@ -76,6 +76,10 @@ export const addBlog = async (req, res) => {
       ],
     });
 
+    // Get userId from authenticated user
+    const userId = req.user?.id;
+    const author = req.user?.name || "Anonymous";
+
     // Save blog to database
     await Blog.create({
       title,
@@ -84,6 +88,8 @@ export const addBlog = async (req, res) => {
       category,
       image: optimizedImageUrl,
       isPublished,
+      userId,
+      author,
     });
 
     res.json({ success: true, message: "Blog added successfully" });
@@ -168,6 +174,16 @@ export const generateContent = async (req, res) => {
     );
 
     res.json({ success: true, content });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const getBlogsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const blogs = await Blog.find({ userId });
+    res.json({ success: true, blogs });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }

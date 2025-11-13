@@ -1,10 +1,27 @@
 import { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import { useAppContext } from '../../../../context/AppContext'
 
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([])
-  const { authAxios } = useAppContext()
+  const { authAxios, token, user } = useAppContext()
+  const navigate = useNavigate()
+
+  // Check authorization
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/login')
+      return
+    }
+
+    const canManageBlogs = user.role === 'admin' || user.role === 'author'
+    if (!canManageBlogs) {
+      toast.error('Only admins and authors can manage blogs')
+      navigate('/')
+      return
+    }
+  }, [token, user, navigate])
 
   const fetchBlogs = useCallback(async () => {
     try {

@@ -2,16 +2,14 @@ import { useAppContext } from '../../context/AppContext'
 import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
 const Navbar = () => {
-  const { navigate, token, setToken, authAxios } = useAppContext()
+  const { navigate, token, user, logout } = useAppContext()
+
+  const isAdmin = user?.role === 'admin'
+  const isAuthor = user?.role === 'author'
+  const canCreateBlogs = isAdmin || isAuthor
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    setToken(null)
-    // remove auth header from the authAxios instance
-    if (authAxios && authAxios.defaults && authAxios.defaults.headers) {
-      delete authAxios.defaults.headers.common['Authorization']
-    }
-    navigate('/')
+    logout()
   }
 
   return (
@@ -47,23 +45,49 @@ const Navbar = () => {
                 >
                   Moments
                 </Link>
+                {token && canCreateBlogs && (
+                  <Link
+                    to='/my-blogs'
+                    className='relative px-3 py-2 hover:text-blue-600 transition-all duration-200 rounded-md hover:bg-blue-50/50 after:content-[""] after:absolute after:w-1 after:h-1 after:bg-blue-500 after:left-1/2 after:-bottom-0.5 after:transition-all after:-translate-x-1/2 after:opacity-0 hover:after:opacity-100'
+                  >
+                    My Blogs
+                  </Link>
+                )}
               </>
             )}
           </nav>
           <div className='flex gap-3'>
-            {token ? (
+            {token && user ? (
               <>
-                <button
-                  className='flex items-center gap-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 border border-blue-100 px-4 py-2 hover:bg-blue-100 hover:border-blue-200 transition-all duration-200 shadow-sm'
-                  onClick={() => navigate('/admin')}
-                >
-                  <span>Dashboard</span>
-                  <img
-                    src={assets.arrow}
-                    className='w-2.5 transition-transform group-hover:translate-x-1'
-                    alt='dashboard'
-                  />
-                </button>
+                {/* User info display */}
+                <div className='hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200'>
+                  <div className='w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold'>
+                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div className='hidden md:block'>
+                    <p className='text-xs text-gray-600'>Logged in as</p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {user.name}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Admin Dashboard button for admin users */}
+                {isAdmin && (
+                  <button
+                    className='hidden sm:flex items-center gap-2 rounded-lg text-sm font-medium bg-purple-50 text-purple-600 border border-purple-100 px-4 py-2 hover:bg-purple-100 hover:border-purple-200 transition-all duration-200 shadow-sm'
+                    onClick={() => navigate('/admin')}
+                  >
+                    <span>Admin</span>
+                    <img
+                      src={assets.arrow}
+                      className='w-2.5 transition-transform group-hover:translate-x-1'
+                      alt='admin'
+                    />
+                  </button>
+                )}
+
+                {/* Logout button */}
                 <button
                   className='flex items-center gap-2 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-100 px-4 py-2 hover:bg-red-100 hover:border-red-200 transition-all duration-200 shadow-sm'
                   onClick={handleLogout}
@@ -72,17 +96,25 @@ const Navbar = () => {
                 </button>
               </>
             ) : (
-              <button
-                className='flex items-center gap-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-sm group'
-                onClick={() => navigate('/admin')}
-              >
-                <span>Login</span>
-                <img
-                  src={assets.arrow}
-                  className='w-2.5 transition-transform group-hover:translate-x-1'
-                  alt='login'
-                />
-              </button>
+              <div className='flex gap-2'>
+                <button
+                  className='flex items-center gap-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 border border-blue-100 px-4 py-2 hover:bg-blue-100 hover:border-blue-200 transition-all duration-200 shadow-sm'
+                  onClick={() => navigate('/login')}
+                >
+                  <span>Login</span>
+                  <img
+                    src={assets.arrow}
+                    className='w-2.5 transition-transform group-hover:translate-x-1'
+                    alt='login'
+                  />
+                </button>
+                <button
+                  className='flex items-center gap-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-sm'
+                  onClick={() => navigate('/signup')}
+                >
+                  <span>Sign Up</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
