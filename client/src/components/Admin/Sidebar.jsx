@@ -1,4 +1,5 @@
 import { assets } from '../../assets/assets'
+import { HiOutlineSparkles } from 'react-icons/hi'
 import { NavLink } from 'react-router-dom'
 
 const Sidebar = () => {
@@ -76,11 +77,7 @@ const Sidebar = () => {
           }`
         }
       >
-        <img
-          src={assets.moment_icon}
-          alt='moment-icon'
-          className='min-w-4 w-5'
-        />
+        <HiOutlineSparkles className='w-5 h-5 text-gray-600' aria-hidden />
         <p className='hidden md:inline-block'>View Moments</p>
       </NavLink>
     </div>

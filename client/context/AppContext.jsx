@@ -130,7 +130,7 @@ export const AppProvider = ({ children }) => {
   )
 
   // Define regular functions
-  const fetchBlogs = async () => {
+  const fetchBlogs = useCallback(async () => {
     try {
       const { data } = await publicAxios.get('api/blog/all')
       if (data.success) {
@@ -144,8 +144,9 @@ export const AppProvider = ({ children }) => {
         toast.error(errorMessage)
       }
     }
-  }
-  const fetchMoments = async () => {
+  }, [])
+
+  const fetchMoments = useCallback(async () => {
     try {
       const { data } = await publicAxios.get('api/moments')
       if (data.success) {
@@ -159,7 +160,7 @@ export const AppProvider = ({ children }) => {
         toast.error(errorMessage)
       }
     }
-  }
+  }, [])
 
   // Set up axios interceptors
   useEffect(() => {
@@ -188,8 +189,11 @@ export const AppProvider = ({ children }) => {
 
   // Initial data fetch
   useEffect(() => {
-    // Only fetch blogs and moments if not in admin section
-    if (!window.location.pathname.startsWith('/admin')) {
+    // Fetch blogs and moments unless we're on actual admin pages (not /admin/blogs or /admin/moments)
+    const isAdminPage =
+      window.location.pathname.startsWith('/admin') &&
+      !window.location.pathname.match(/\/(blogs|moments)$/)
+    if (!isAdminPage) {
       fetchBlogs()
       fetchMoments()
     }
@@ -197,7 +201,7 @@ export const AppProvider = ({ children }) => {
     if (token && window.location.pathname.startsWith('/admin')) {
       fetchUserData()
     }
-  }, [token, fetchUserData])
+  }, [token, fetchUserData, fetchBlogs, fetchMoments])
 
   // Create context value with all needed functions and state
   const value = {

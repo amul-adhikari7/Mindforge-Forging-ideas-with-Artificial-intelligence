@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import BlogTableItem from '../../Admin/BlogTableItem'
 import toast from 'react-hot-toast'
 import { useAppContext } from '../../../../context/AppContext'
+
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([])
   const { authAxios } = useAppContext()
+
   const fetchBlogs = useCallback(async () => {
     try {
       const { data } = await authAxios.get('/api/admin/blogs')
-      // API returns `success: true` on success
       if (data.success) {
         setBlogs(data.blogs)
       } else {
@@ -22,43 +22,110 @@ const ListBlog = () => {
   useEffect(() => {
     fetchBlogs()
   }, [fetchBlogs])
+
+  const deleteBlog = async id => {
+    const confirm = window.confirm('Delete this blog?')
+    if (!confirm) return
+    try {
+      const { data } = await authAxios.post('/api/blog/delete', { id })
+      if (data.success) {
+        toast.success('Deleted')
+        fetchBlogs()
+      } else toast.error(data.message)
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const togglePublish = async id => {
+    try {
+      const { data } = await authAxios.post('/api/blog/toggle-publish', { id })
+      if (data.success) {
+        toast.success(data.message)
+        fetchBlogs()
+      } else toast.error(data.message)
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
   return (
-    <div className='flex-1 bg-blue-50/50 sm:pl-16 sm:pt-12  pt-5 px-5'>
-      <h1 className='font-semibold '>All Blogs</h1>
-      <div className='relative h-4/5 max-w-4xl mt-4  overflow-x-auto shadow rounded-lg  scrollbar-hide bg-white '>
-        <table className='w-full text-sm text-gray-500 '>
-          <thead className='text-xs text-gray-600 text-left uppercase'>
-            <tr>
-              <th scope='col' className='px-2 py-4 xl:px-6'>
-                #
-              </th>
-              <th scope='col' className='px-2 py-4 '>
-                Blog Title
-              </th>
-              <th scope='col' className='px-2 py-4 max-sm:hidden'>
-                Date
-              </th>
-              <th scope='col' className='px-2 py-4 max-sm:hidden'>
-                Status
-              </th>
-              <th scope='col' className='px-2 py-4 '>
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {blogs.map((blog, index) => {
+    <div className='flex-1 sm:pl-16 sm:pt-12 pt-5 px-5'>
+      <div className='container-centered'>
+        <div className='flex items-center justify-between mb-6'>
+          <div>
+            <h1 className='text-2xl font-semibold'>All Blogs</h1>
+            <p className='text-sm muted mt-1'>
+              Manage and review published posts
+            </p>
+          </div>
+          <div className='text-sm muted'>{blogs.length} items</div>
+        </div>
+
+        {blogs.length === 0 ? (
+          <div className='card p-8 text-center'>
+            <p className='muted'>
+              No blogs yet. Add your first story from the admin panel.
+            </p>
+          </div>
+        ) : (
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
+            {blogs.map(blog => {
+              const BlogDate = new Date(blog.createdAt)
               return (
-                <BlogTableItem
-                  key={blog._id}
-                  blog={blog}
-                  fetchBlogs={fetchBlogs}
-                  index={index + 1}
-                />
+                <article key={blog._id} className='card overflow-hidden'>
+                  <div className='card-inner flex flex-col h-full'>
+                    <div className='flex items-start justify-between gap-4'>
+                      <div>
+                        <h2 className='text-lg font-semibold text-gray-800'>
+                          {blog.title}
+                        </h2>
+                        <p className='text-xs muted mt-1'>
+                          {BlogDate.toDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            blog.isPublished
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-50 text-orange-700'
+                          }`}
+                        >
+                          {blog.isPublished ? 'Published' : 'Draft'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className='text-sm text-gray-600 mt-3 line-clamp-3'>
+                      {blog.excerpt || blog.title}
+                    </p>
+
+                    <div className='mt-4 flex items-end justify-between gap-3'>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => togglePublish(blog._id)}
+                          className='btn-ghost'
+                        >
+                          {blog.isPublished ? 'Unpublish' : 'Publish'}
+                        </button>
+                        <button
+                          onClick={() => deleteBlog(blog._id)}
+                          className='border px-3 py-1 rounded text-sm'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      <div className='text-xs muted'>
+                        by {blog.author || 'admin'}
+                      </div>
+                    </div>
+                  </div>
+                </article>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   )

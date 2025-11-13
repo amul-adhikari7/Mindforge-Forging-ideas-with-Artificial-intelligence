@@ -25,41 +25,65 @@ const Blogs = () => {
     return filteredBlogs().filter(blog => blog.category === menu)
   }
 
+  const filteredResult = getFilteredBlogs()
+
   return (
-    <div className='min-h-screen bg-gradient-to-br from-pink-50 to-white'>
-      <div className='container mx-auto px-4 py-8'>
-        <h1 className='text-4xl font-bold text-gray-900 mb-8 text-center'>
-          Our Blogs
-        </h1>
+    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30'>
+      <div className='w-full px-4 md:px-6 py-16'>
+        {/* Header */}
+        <div className='text-center mb-12'>
+          <div className='inline-block mb-3'>
+            <span className='px-3 py-1 rounded-full text-sm font-medium bg-white/60 shadow-sm'>
+              Stories
+            </span>
+          </div>
+          <h1 className='text-4xl md:text-5xl font-bold text-gray-900 mb-3'>
+            Explore Our Stories
+          </h1>
+          <p className='text-lg text-gray-600 max-w-2xl mx-auto'>
+            Discover heartfelt moments, adventures, and insights from couples
+            navigating life together.
+          </p>
+        </div>
 
-        {/* Category buttons */}
-        <div className='flex justify-center gap-4 sm:gap-8 my-10 relative flex-wrap'>
+        {/* Category filters */}
+        <div className='flex flex-wrap justify-center gap-2 md:gap-3 mb-12 pb-6 border-b border-gray-200'>
           {blogCategories.map(item => (
-            <div key={item} className='relative'>
-              <button
-                onClick={() => setMenu(item)}
-                className={`relative px-5 py-2 rounded-full font-medium transition-all duration-300 overflow-hidden
-                  ${
-                    menu === item
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-              >
-                {menu === item && (
-                  <span className='absolute inset-0 bg-blue-500 rounded-full z-[-1] animate-fadeIn'></span>
-                )}
-                {item}
-              </button>
-            </div>
+            <button
+              key={item}
+              onClick={() => setMenu(item)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                menu === item
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {item}
+            </button>
           ))}
         </div>
 
-        {/* Blogs grid */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-24'>
-          {getFilteredBlogs().map(blog => (
-            <BlogCard key={blog._id} blog={blog} />
-          ))}
-        </div>
+        {/* Blogs grid or empty state */}
+        {filteredResult.length === 0 ? (
+          <div className='card p-12 text-center'>
+            <p className='text-lg muted'>No stories found in this category.</p>
+            <button onClick={() => setMenu('All')} className='mt-4 btn-primary'>
+              View All Stories
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className='text-sm muted mb-6 text-center'>
+              {filteredResult.length}{' '}
+              {filteredResult.length === 1 ? 'story' : 'stories'} found
+            </p>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-24'>
+              {filteredResult.map(blog => (
+                <BlogCard key={blog._id} blog={blog} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
