@@ -206,33 +206,69 @@ export const AppProvider = ({ children }) => {
         })
       }
     } catch (error) {
-      console.error('Error fetching dashboard:', error)
-      if (error.response?.status === 401) {
+      const status = error.response?.status
+
+      if (status === 403) {
+        console.error('[Dashboard] Access denied (403) - User lacks admin role')
+        toast.error('Admin access required. Contact system administrator.')
+      } else if (status === 401) {
+        console.error('[Dashboard] Unauthorized (401) - Token invalid')
         logout()
+      } else {
+        console.error('[Dashboard] Error fetching dashboard:', error.message)
       }
     }
   }, [token, user, logout])
 
   useEffect(() => {
-    // Configure auth axios instance with token
+    // Configure authAxios with token
     if (token) {
       authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     } else {
       delete authAxios.defaults.headers.common['Authorization']
     }
 
+    // Request interceptor: log outgoing requests with auth
+    const requestInterceptor = authAxios.interceptors.request.use(
+      config => {
+        if (config.headers.Authorization) {
+          console.log(`[API] ${config.method.toUpperCase()} ${config.url}`)
+        }
+        return config
+      },
+      error => Promise.reject(error)
+    )
+
+    // Response interceptor: handle auth errors
     const responseInterceptor = authAxios.interceptors.response.use(
       response => response,
       error => {
-        if (error.response?.status === 401) {
+        const status = error.response?.status
+        const data = error.response?.data
+
+        if (status === 401) {
+          console.error('[API] 401 Unauthorized - Token invalid or expired')
           logout()
           toast.error('Your session has expired. Please login again.')
+        } else if (status === 403) {
+          console.error('[API] 403 Forbidden - Access denied')
+          toast.error(
+            data?.message || 'Access denied. Admin privileges required.'
+          )
+        } else if (status >= 500) {
+          console.error('[API] Server error:', status, data?.message)
+          toast.error('Server error. Please try again later.')
+        } else if (error.message === 'Network Error' && !error.response) {
+          console.error('[API] Network error - check connection')
+          toast.error('Network error. Please check your connection.')
         }
+
         return Promise.reject(error)
       }
     )
 
     return () => {
+      authAxios.interceptors.request.eject(requestInterceptor)
       authAxios.interceptors.response.eject(responseInterceptor)
     }
   }, [token, logout])

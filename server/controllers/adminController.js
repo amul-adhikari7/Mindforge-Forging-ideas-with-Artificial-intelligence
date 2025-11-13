@@ -76,12 +76,6 @@ export const adminLogin = async (req, res) => {
 };
 export const getAllBlogsAdmin = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
     const blogs = await Blog.find({}).sort({ createdAt: -1 });
     res.json({ success: true, blogs });
   } catch (error) {
@@ -92,12 +86,6 @@ export const getAllBlogsAdmin = async (req, res) => {
 
 export const getAllComments = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
     const comments = await Comment.find({})
       .populate("blog")
       .sort({ createdAt: -1 });
@@ -110,15 +98,7 @@ export const getAllComments = async (req, res) => {
 
 export const getDashboard = async (req, res) => {
   try {
-    // Verify admin access (belt and suspenders)
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
-
-    const recentBlogs = await Blog.find({}).sort({ createdAt: -1 });
+    const recentBlogs = await Blog.find({}).sort({ createdAt: -1 }).limit(5);
     const blogs = await Blog.countDocuments();
     const comments = await Comment.countDocuments();
     const drafts = await Blog.countDocuments({ isPublished: false });
@@ -130,7 +110,8 @@ export const getDashboard = async (req, res) => {
       drafts,
       user: { email: req.user.email, role: req.user.role },
     };
-    res.json({ success: true, dashboardData });
+
+    return res.status(200).json({ success: true, dashboardData });
   } catch (error) {
     console.error("Dashboard error:", error);
     res.status(500).json({ success: false, message: error.message });

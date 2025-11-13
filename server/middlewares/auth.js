@@ -1,81 +1,119 @@
 import jwt from "jsonwebtoken";
 
+/**
+ * Middleware: Verify JWT token
+ * Attaches req.user with { id, email, role } on success
+ * Returns 401 for missing/invalid tokens
+ */
 export const verifyToken = (req, res, next) => {
   try {
-    // Log request details
-    console.log(`Authenticating ${req.method} ${req.path}`);
-    console.log("Authorization header:", req.headers.authorization);
-
-    // Check for authorization header
     const authHeader = req.headers.authorization;
+
     if (!authHeader) {
-      console.log("No Authorization header");
-      return res
-        .status(401)
-        .json({ success: false, message: "No authorization header" });
+      console.log(
+        "[AUTH] Missing Authorization header on",
+        req.method,
+        req.path
+      );
+      return res.status(401).json({
+        success: false,
+        code: "no_token",
+        message: "No authorization token provided. Please login first.",
+        hint: "Add Authorization header: 'Bearer {token}'",
+      });
     }
 
-    // Extract and validate token format
     const [bearer, token] = authHeader.split(" ");
     if (bearer !== "Bearer" || !token) {
-      console.log("Invalid Authorization format");
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid authorization format" });
+      console.log(
+        "[AUTH] Invalid Authorization format on",
+        req.method,
+        req.path
+      );
+      return res.status(401).json({
+        success: false,
+        code: "invalid_format",
+        message: "Invalid authorization format.",
+        hint: "Use: Authorization: Bearer {token}",
+      });
     }
 
-    console.log("Token found:", token.substring(0, 10) + "...");
-
-    // Check JWT_SECRET
     if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is missing");
-      return res
-        .status(500)
-        .json({ success: false, message: "Server configuration error" });
+      console.error("[ERROR] JWT_SECRET is missing");
+      return res.status(500).json({
+        success: false,
+        code: "server_error",
+        message: "Server configuration error.",
+      });
     }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Token verified successfully:", {
+
+    // Attach user to request with required fields
+    req.user = {
+      id: decoded.id,
       email: decoded.email,
       role: decoded.role,
-      exp: decoded.exp
-        ? new Date(decoded.exp * 1000).toISOString()
-        : "no expiration",
-    });
+    };
 
-    req.user = decoded;
-
-    // Admin route check
-    if (req.path.startsWith("/admin/") && decoded.role !== "admin") {
-      console.log("Non-admin access attempt:", decoded.email);
-      return res
-        .status(403)
-        .json({ success: false, message: "Admin access required" });
-    }
-
+    console.log(
+      `[AUTH] Token verified for ${decoded.email} (role: ${decoded.role})`
+    );
     next();
   } catch (error) {
-    console.error("Auth error:", {
-      type: error.name,
-      message: error.message,
-      expiry: error.expiredAt
-        ? new Date(error.expiredAt).toISOString()
-        : undefined,
-    });
-
     if (error.name === "TokenExpiredError") {
+      console.log("[AUTH] Token expired on", req.method, req.path);
       return res.status(401).json({
         success: false,
+        code: "token_expired",
         message: "Session expired. Please login again.",
-        code: "TOKEN_EXPIRED",
       });
     }
 
+    console.error(
+      "[AUTH] Token verification failed:",
+      error.name,
+      error.message
+    );
     return res.status(401).json({
       success: false,
-      message: "Authentication failed. Please login again.",
-      code: error.name,
+      code: "invalid_token",
+      message: "Invalid or malformed token. Please login again.",
     });
   }
+};
+
+/**
+ * Middleware: Authorize by role
+ * Returns 403 with clear JSON if user role doesn't match
+ * @param {...string} allowedRoles - Role(s) allowed to access
+ */
+export const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      console.log("[AUTH] No user object attached to request");
+      return res.status(401).json({
+        success: false,
+        code: "no_user",
+        message: "Authentication required.",
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      console.log(
+        `[AUTH] Access denied for ${req.user.email} (role: ${req.user.role}) trying to access ${req.method} ${req.path}`
+      );
+      return res.status(403).json({
+        success: false,
+        code: "forbidden",
+        message: "Access denied. Admin privileges required.",
+      });
+    }
+
+    console.log(
+      `[AUTH] Access granted for ${req.user.email} to ${req.method} ${req.path}`
+    );
+    next();
+  };
 };

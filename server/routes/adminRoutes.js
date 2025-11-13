@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../middlewares/auth.js";
+import { verifyToken, authorizeRoles } from "../middlewares/auth.js";
 import {
   adminLogin,
   approveCommentById,
@@ -10,11 +10,40 @@ import {
 } from "../controllers/adminController.js";
 
 const adminRouter = express.Router();
+
+// Public route
 adminRouter.post("/login", adminLogin);
-adminRouter.get("/comments", verifyToken, getAllComments);
-adminRouter.get("/blogs", verifyToken, getAllBlogsAdmin);
-adminRouter.post("/delete-comment", verifyToken, deleteCommentById);
-adminRouter.post("/approve-comment", verifyToken, approveCommentById);
-adminRouter.get("/dashboard", verifyToken, getDashboard);
+
+// Protected admin routes
+adminRouter.get(
+  "/comments",
+  verifyToken,
+  authorizeRoles("admin"),
+  getAllComments
+);
+adminRouter.get(
+  "/blogs",
+  verifyToken,
+  authorizeRoles("admin"),
+  getAllBlogsAdmin
+);
+adminRouter.post(
+  "/delete-comment",
+  verifyToken,
+  authorizeRoles("admin"),
+  deleteCommentById
+);
+adminRouter.post(
+  "/approve-comment",
+  verifyToken,
+  authorizeRoles("admin"),
+  approveCommentById
+);
+adminRouter.get(
+  "/dashboard",
+  verifyToken,
+  authorizeRoles("admin"),
+  getDashboard
+);
 
 export default adminRouter;
